@@ -306,36 +306,138 @@ defmodule String do
 
   ## Examples
 
-      String.codepoints("josé")         => ["j", "o", "s", "é"]
-      String.codepoints("оптими зации") => ["о","п","т","и","м","и"," ","з","а","ц","и","и"]
-      String.codepoints("ἅἪῼ")          => ["ἅ","Ἢ","ῼ"]
+      String.codepoints("josé")         #=> ["j", "o", "s", "é"]
+      String.codepoints("оптими зации") #=> ["о","п","т","и","м","и"," ","з","а","ц","и","и"]
+      String.codepoints("ἅἪῼ")          #=> ["ἅ","Ἢ","ῼ"]
 
   """
   def codepoints(string) do
     codepoints(string, [])
   end
 
-  def codepoints(<<194, char, rest :: binary>>, buffer) when char in 161..191 do
-    codepoints(rest, buffer ++ [<<194, char>>])
+  defp codepoints(string, buffer) do
+    case codepoint(string) do
+    { codepoint, rest } -> codepoints(rest, buffer ++ [codepoint])
+    :no_codepoint -> buffer
+    end
+  end  
+
+  @doc """
+  Returns the first codepoint from an utf8 string.
+
+  ## Examples
+
+      String.first("elixir")  #=> "e"
+      String.first("եոգլի") #=> "ե"
+
+  """
+  def first(string) do
+    case codepoint(string) do
+    { char, _ } -> char
+    :no_codepoint -> nil
+    end
   end
 
-  def codepoints(<<first, char, rest :: binary>>, buffer) when first in 195..223 and char in 128..191 do
-    codepoints(rest, buffer ++ [<<first, char>>])
+  @doc """
+  Returns the last codepoint from an utf8 string.
+
+  ## Examples
+
+      String.last("elixir")  #=> "r"
+      String.last("եոգլի") #=> "ի"
+
+  """
+  def last(string) do
+    last(string, nil)
   end
 
-  def codepoints(<<first, second, char, rest :: binary>>, buffer) when first == 224 and second in 160..191 and char in 128..191 do
-    codepoints(rest, buffer ++ [<<first, second, char>>])
+  defp last(string, last_char) do
+    case codepoint(string) do
+    { char, rest } -> last(rest, char)
+    :no_codepoint -> last_char
+    end
   end
 
-  def codepoints(<<first, second, char, rest :: binary>>, buffer) when first in 225..239 and second in 128..191 and char in 128..191 do
-    codepoints(rest, buffer ++ [<<first, second, char>>])
+  @doc """
+  Returns the number of codepoint in an utf8 string.
+
+  ## Examples
+
+      String.length("elixir")  #=> 6
+      String.length("եոգլի") #=> 5
+
+  """
+  def length(string) do
+    length(string, 0)
   end
 
-  def codepoints(<<other, rest :: binary>>, buffer) do
-    codepoints(rest, buffer ++ [<<other>>])
+  defp length(string, counter) do
+    case codepoint(string) do
+    { char, rest } -> length(rest, counter + 1)
+    :no_codepoint -> counter
+    end
   end
 
-  def codepoints(<<>>, buffer) do
-    buffer
+  @doc """
+  Returns the codepoint in the `position` of the given utf8 `string`.
+  If `position` is greater than `string` length, than it returns `nil`.
+
+  ## Examples
+
+      String.at("elixir", 0) #=> "1"
+      String.at("elixir", 1) #=> "l"
+      String.at("elixir", 10) #=> nil
+      String.at("elixir", -1) #=> "r"
+      String.at("elixir", -10) #=> "nil"
+
+  """
+  def at(string, position) when position >= 0 do
+    at(string, position, 0)
   end
+
+  def at(string, position) when position < 0 do
+    real_pos = length(string, 0) - abs(position)
+    case real_pos >= 0 do
+    true -> at(string, real_pos, 0)
+    false -> nil
+    end
+  end
+
+  defp at(string, desired_pos, current_pos) when desired_pos > current_pos do
+    case codepoint(string) do
+    { char, rest } -> at(rest, desired_pos, current_pos + 1)
+    :no_codepoint -> nil
+    end
+  end
+
+  defp at(string, desired_pos, current_pos) when desired_pos == current_pos do
+    case codepoint(string) do
+    { char, _ } -> char
+    :no_codepoint -> nil
+    end
+  end
+
+  # Private implementation which returns the first codepoint
+  # of any given utf8 string and the rest of it
+  # If an empty string is given, :no_codepoint is returned.
+  defp codepoint(<<194, char, rest :: binary>>)
+    when char in 161..191,
+    do: { <<194, char>>, rest }
+
+  defp codepoint(<<first, char, rest :: binary>>)
+    when first in 195..223 and char in 128..191,
+    do: { <<first, char>>, rest }
+
+  defp codepoint(<<first, second, char, rest :: binary>>)
+    when first == 224 and second in 160..191 and char in 128..191,
+    do: { <<first, second, char>>, rest }
+
+  defp codepoint(<<first, second, char, rest :: binary>>)
+    when first in 225..239 and second in 128..191 and char in 128..191,
+    do: { <<first, second, char>>, rest }
+  
+  defp codepoint(<<other, rest :: binary>>), do: { <<other>>, rest }
+  
+  defp codepoint(<<>>), do: :no_codepoint
+
 end
